@@ -6,14 +6,16 @@ import type { ChatMessage, Persona } from "@/lib/types";
 interface Props {
   apiMessages: unknown[];
   chatMessages: ChatMessage[];
+  phase: string;
   setApiMessages: (msgs: unknown[]) => void;
   setChatMessages: (msgs: ChatMessage[]) => void;
   onPersonaReady: (persona: Persona) => void;
 }
 
-export default function ChatPhase({
+export default function ChatPanel({
   apiMessages,
   chatMessages,
+  phase,
   setApiMessages,
   setChatMessages,
   onPersonaReady,
@@ -22,7 +24,7 @@ export default function ChatPhase({
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!started) {
@@ -35,6 +37,11 @@ export default function ChatPhase({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages, loading]);
 
+  function autoResize(el: HTMLTextAreaElement) {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 140) + "px";
+  }
+
   async function initChat() {
     setLoading(true);
     try {
@@ -46,7 +53,6 @@ export default function ChatPhase({
       setChatMessages([{ role: "assistant", text: "연결에 실패했습니다. 페이지를 새로고침해 주세요." }]);
     } finally {
       setLoading(false);
-      inputRef.current?.focus();
     }
   }
 
@@ -57,6 +63,7 @@ export default function ChatPhase({
     const newChat: ChatMessage[] = [...chatMessages, { role: "user", text }];
     setChatMessages(newChat);
     setInput("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
     setLoading(true);
 
     try {
@@ -69,89 +76,117 @@ export default function ChatPhase({
       setApiMessages(data.messages);
 
       const updated: ChatMessage[] = [...newChat];
-      if (data.response) {
-        updated.push({ role: "assistant", text: data.response });
-      }
+      if (data.response) updated.push({ role: "assistant", text: data.response });
       setChatMessages(updated);
 
       if (data.persona) {
-        setTimeout(() => onPersonaReady(data.persona), 800);
+        setTimeout(() => onPersonaReady(data.persona), 600);
       }
     } catch {
       setChatMessages([...newChat, { role: "assistant", text: "오류가 발생했습니다. 다시 시도해 주세요." }]);
     } finally {
       setLoading(false);
-      inputRef.current?.focus();
     }
   }
 
+  const disabled = phase !== "chat";
+
   return (
-    <div className="flex flex-col flex-1">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-hide">
-        {chatMessages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            {msg.role === "assistant" && (
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold mr-2 mt-1 flex-shrink-0">
-                AI
-              </div>
-            )}
-            <div
-              className={`max-w-[78%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-                msg.role === "user"
-                  ? "bg-gradient-to-br from-purple-500 to-pink-500 text-white rounded-tr-sm"
-                  : "bg-white text-gray-800 shadow-sm border border-purple-50 rounded-tl-sm"
-              }`}
-            >
-              {msg.text}
-            </div>
+    <div className="chat-panel">
+      <div className="chat-scroll">
+        <div className="chat-inner">
+          {/* Intro splash */}
+          <div className="intro">
+            <div className="intro-eyebrow">Persona-driven Social Agent</div>
+            <h1 className="intro-title">
+              Build your<br /><em>audience persona</em>
+            </h1>
+            <p className="intro-sub">
+              AI와 대화를 나누며 타겟 페르소나를 완성하세요.<br />
+              완성되면 맞춤 Instagram 홍보 자료를 자동으로 생성합니다.
+            </p>
+            <div className="intro-rule" />
           </div>
-        ))}
 
-        {loading && (
-          <div className="flex justify-start">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold mr-2 mt-1">
-              AI
+          {/* Messages */}
+          {chatMessages.map((msg, i) => (
+            <div key={i} className={`row ${msg.role === "user" ? "user" : ""}`}>
+              {msg.role === "assistant" && <div className="avatar bot">A</div>}
+              <div className={`bubble ${msg.role === "bot" || msg.role === "assistant" ? "bot" : "usr"}`}>
+                {msg.text.split("\n").map((line, j) => (
+                  <p key={j}>{line}</p>
+                ))}
+              </div>
+              {msg.role === "user" && <div className="avatar usr">Y</div>}
             </div>
-            <div className="bg-white px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm border border-purple-50">
-              <div className="flex gap-1.5 items-center">
-                <span className="w-2 h-2 bg-purple-300 rounded-full animate-bounce [animation-delay:0ms]" />
-                <span className="w-2 h-2 bg-purple-300 rounded-full animate-bounce [animation-delay:150ms]" />
-                <span className="w-2 h-2 bg-purple-300 rounded-full animate-bounce [animation-delay:300ms]" />
+          ))}
+
+          {loading && (
+            <div className="row">
+              <div className="avatar bot">A</div>
+              <div className="bubble bot">
+                <div className="typing">
+                  <span /><span /><span />
+                </div>
               </div>
             </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
+          )}
 
-      {/* Input */}
-      <div className="px-4 py-4 bg-white/80 backdrop-blur-sm border-t border-purple-100">
-        <div className="flex gap-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            placeholder="메시지를 입력하세요..."
-            disabled={loading}
-            className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-full text-sm outline-none focus:border-purple-300 focus:ring-2 focus:ring-purple-100 transition-all disabled:opacity-50"
-          />
-          <button
-            onClick={sendMessage}
-            disabled={loading || !input.trim()}
-            className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white disabled:opacity-40 transition-all hover:shadow-md active:scale-95"
-          >
-            <svg className="w-4 h-4 rotate-90" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-            </svg>
-          </button>
+          {phase !== "chat" && (
+            <div className="row fade-in">
+              <div className="avatar bot">A</div>
+              <div className="bubble bot">
+                <div className="label">Atelier Studio</div>
+                <p>페르소나가 완성되었습니다. 캔버스에서 생성된 홍보 자료를 확인해 주세요.</p>
+              </div>
+            </div>
+          )}
+
+          <div ref={bottomRef} />
         </div>
-        <p className="text-xs text-gray-400 text-center mt-2">
-          AI가 충분한 정보를 수집하면 자동으로 다음 단계로 넘어갑니다
-        </p>
       </div>
+
+      {/* Composer */}
+      {!disabled && (
+        <div className="composer-wrap">
+          <div className="composer">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              rows={1}
+              onChange={(e) => {
+                setInput(e.target.value);
+                autoResize(e.target);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
+              placeholder="메시지를 입력하세요..."
+              disabled={loading}
+            />
+            <button
+              className="send-btn"
+              onClick={sendMessage}
+              disabled={loading || !input.trim()}
+              aria-label="Send"
+            >
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+              </svg>
+            </button>
+          </div>
+          <div className="composer-hint">
+            <span className="kbd">Enter</span>
+            <span>전송</span>
+            <span className="sep" />
+            <span className="kbd">Shift + Enter</span>
+            <span>줄바꿈</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
