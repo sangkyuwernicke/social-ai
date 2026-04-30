@@ -169,22 +169,29 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self):
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = json.loads(self.rfile.read(content_length))
-        persona = body["persona"]
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(content_length))
+            persona = body["persona"]
 
-        content = _generate_content(persona)
-        image_url = _generate_image(content["image_prompt"])
+            content = _generate_content(persona)
+            image_url = _generate_image(content["image_prompt"])
 
-        result = {
-            "tagline_korean": content["tagline_korean"],
-            "tagline_english": content["tagline_english"],
-            "image_prompt": content["image_prompt"],
-            "image_url": image_url,
-        }
+            result = {
+                "tagline_korean": content["tagline_korean"],
+                "tagline_english": content["tagline_english"],
+                "image_prompt": content["image_prompt"],
+                "image_url": image_url,
+            }
+            status = 200
+        except Exception as e:
+            import traceback
+            result = {"error": str(e), "detail": traceback.format_exc()}
+            status = 500
+
         resp_body = json.dumps(result, ensure_ascii=False).encode("utf-8")
 
-        self.send_response(200)
+        self.send_response(status)
         for k, v in _cors_headers().items():
             self.send_header(k, v)
         self.send_header("Content-Length", str(len(resp_body)))
