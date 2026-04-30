@@ -4,24 +4,32 @@ import { useEffect, useState } from "react";
 import type { Persona, MarketingContent } from "@/lib/types";
 
 interface Props {
-  persona: Persona;
+  persona: Persona | null;
   content: MarketingContent | null;
+  phase: "review" | "done";
   setContent: (c: MarketingContent) => void;
   onApprove: (c: MarketingContent) => void;
+  onRestart: () => void;
 }
 
-export default function ContentPhase({ persona, content, setContent, onApprove }: Props) {
+export default function CanvasPanel({ persona, content, phase, setContent, onApprove, onRestart }: Props) {
+  const [tab, setTab] = useState<"persona" | "creative">("persona");
   const [loading, setLoading] = useState(false);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!content) {
+    if (phase === "review" && !content) {
       generateContent();
     }
-  }, []);
+  }, [phase]);
+
+  useEffect(() => {
+    if (content) setTab("creative");
+  }, [content]);
 
   async function generateContent() {
+    if (!persona) return;
     setLoading(true);
     setError("");
     try {
@@ -30,11 +38,11 @@ export default function ContentPhase({ persona, content, setContent, onApprove }
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ persona }),
       });
-      if (!res.ok) throw new Error("생성 실패");
+      if (!res.ok) throw new Error();
       const data = await res.json();
       setContent(data);
     } catch {
-      setError("홍보 자료 생성에 실패했습니다. 다시 시도해 주세요.");
+      setError("생성에 실패했습니다. 다시 시도해 주세요.");
     } finally {
       setLoading(false);
     }
@@ -49,93 +57,238 @@ export default function ContentPhase({ persona, content, setContent, onApprove }
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
       });
-    } catch {
-      // Continue even if post fails — simulation always succeeds
     } finally {
       setPosting(false);
-      onApprove(content!);
+      onApprove(content);
     }
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6 scrollbar-hide">
-      {/* Persona summary */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-purple-100">
-        <p className="text-xs font-semibold text-purple-500 uppercase tracking-wide mb-2">완성된 페르소나</p>
-        <p className="font-semibold text-gray-800">{persona.name}</p>
-        <p className="text-sm text-gray-500">{persona.age_range} · {persona.occupation}</p>
-        <div className="mt-2 flex flex-wrap gap-1">
-          {persona.interests.slice(0, 4).map((i) => (
-            <span key={i} className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">
-              {i}
-            </span>
-          ))}
+    <div className="canvas-panel">
+      {/* Head */}
+      <div className="canvas-head">
+        <div className="title">
+          <h2>Canvas<em>·</em></h2>
+          <span className="sub">
+            {phase === "done" ? "Posted" : loading ? "Generating…" : "Ready"}
+          </span>
+        </div>
+        <div className="actions">
+          <button
+            className={`canvas-tab ${tab === "persona" ? "is-active" : ""}`}
+            onClick={() => setTab("persona")}
+          >
+            Persona
+          </button>
+          <button
+            className={`canvas-tab ${tab === "creative" ? "is-active" : ""}`}
+            onClick={() => setTab("creative")}
+          >
+            Creative
+          </button>
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-4">
-          <div className="w-12 h-12 rounded-full border-4 border-purple-200 border-t-purple-500 animate-spin" />
-          <p className="text-sm text-gray-500">홍보 자료를 생성하는 중...</p>
-          <p className="text-xs text-gray-400">문구와 이미지를 만들고 있습니다</p>
+      {/* Body */}
+      <div className="canvas-body">
+        {tab === "persona" && persona && (
+          <PersonaCard persona={persona} />
+        )}
+
+        {tab === "creative" && (
+          <>
+            {loading && !content && (
+              <div className="canvas-empty">
+                <div className="glyph">✦</div>
+                <div className="t">홍보 자료 생성 중</div>
+                <div className="s">문구와 이미지를 만들고 있습니다…</div>
+              </div>
+            )}
+            {error && (
+              <div className="canvas-empty">
+                <div className="t" style={{ color: "var(--rouge)" }}>생성 실패</div>
+                <div className="s">{error}</div>
+                <button className="tlbtn primary" style={{ marginTop: 16 }} onClick={generateContent}>
+                  다시 시도
+                </button>
+              </div>
+            )}
+            {content && (
+              <>
+                {/* Copy block */}
+                <div className="canvas-section">
+                  <div className="section-head">
+                    <div className="t"><span className="num">01</span> Copy<em> ·</em></div>
+                    <span className="meta">Bilingual</span>
+                  </div>
+                  <div className="copy-block">
+                    <div className="copy-lang">한국어</div>
+                    <p className="copy-ko">{content.tagline_korean}</p>
+                    <div className="copy-divider" />
+                    <div className="copy-lang">English</div>
+                    <p className="copy-en">{content.tagline_english}</p>
+                  </div>
+                </div>
+
+                {/* Instagram visual */}
+                <div className="canvas-section">
+                  <div className="section-head">
+                    <div className="t"><span className="num">02</span> Visual<em> ·</em></div>
+                    <span className="meta">Instagram</span>
+                  </div>
+                  <div className="ig-frame">
+                    <div className="ig-head">
+                      <div className="av"><div className="inner">A</div></div>
+                      <div className="who">atelier.studio</div>
+                      <div className="more">···</div>
+                    </div>
+                    <div className="ig-image">
+                      {content.image_url ? (
+                        content.image_url.startsWith("data:") || content.image_url.startsWith("http") ? (
+                          <img
+                            src={content.image_url}
+                            alt="Generated"
+                            style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }}
+                          />
+                        ) : (
+                          <ArtPlaceholder tagline={content.tagline_english} />
+                        )
+                      ) : (
+                        <ArtPlaceholder tagline="" loading />
+                      )}
+                    </div>
+                    <div className="ig-actions">
+                      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /></svg>
+                      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" /></svg>
+                      <svg width="20" height="20" className="bookmark" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" /></svg>
+                    </div>
+                    <div className="ig-caption">
+                      <b>atelier.studio</b> {content.tagline_korean}
+                    </div>
+                    <div className="ig-when">방금 전</div>
+                  </div>
+                </div>
+
+                {/* Approval / Posted */}
+                {phase === "done" ? (
+                  <div className="posted fade-in">
+                    <div className="glyph">✓</div>
+                    <div className="t">포스팅 완료</div>
+                    <div className="s">Instagram Simulation Complete</div>
+                  </div>
+                ) : (
+                  <div className="approval-bar">
+                    <div className="t">
+                      이 자료를 게시할까요?
+                      <small>Approve to post on Instagram</small>
+                    </div>
+                    <button
+                      className="btn btn-ghost"
+                      onClick={generateContent}
+                      disabled={loading || posting}
+                    >
+                      다시 생성
+                    </button>
+                    <button
+                      className="btn btn-gold"
+                      onClick={handleApprove}
+                      disabled={posting}
+                    >
+                      {posting ? "게시 중…" : "게시하기"}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Toolbar */}
+      <div className="canvas-toolbar">
+        <div className="left">
+          <span className="live" />
+          Live preview
         </div>
-      ) : error ? (
-        <div className="bg-red-50 rounded-2xl p-6 text-center">
-          <p className="text-red-600 text-sm mb-3">{error}</p>
-          <button
-            onClick={generateContent}
-            className="text-sm text-purple-600 font-medium underline"
-          >
-            다시 시도
+        {phase === "done" && (
+          <button className="tlbtn" onClick={onRestart}>
+            새 페르소나
           </button>
-        </div>
-      ) : content ? (
+        )}
+        {phase === "review" && content && !loading && (
+          <button className="tlbtn primary" onClick={handleApprove} disabled={posting}>
+            {posting ? "게시 중…" : "승인 → 게시"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ArtPlaceholder({ tagline, loading = false }: { tagline: string; loading?: boolean }) {
+  return (
+    <div className={`ig-art ${loading ? "is-loading" : ""}`}>
+      <div className="gridlines" />
+      <div className="label-cap">Atelier · Studio</div>
+      <div className="seal">A</div>
+      {loading ? (
+        <div className="headline">Generating…</div>
+      ) : (
         <>
-          {/* Generated image */}
-          <div className="rounded-2xl overflow-hidden shadow-md aspect-square bg-gray-100">
-            <img
-              src={content.image_url}
-              alt="Generated Instagram image"
-              className="w-full h-full object-cover"
-            />
+          <div className="headline">
+            <em>{tagline}</em>
           </div>
-
-          {/* Taglines */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-purple-100 space-y-4">
-            <p className="text-xs font-semibold text-purple-500 uppercase tracking-wide">생성된 홍보 문구</p>
-            <div>
-              <p className="text-xs text-gray-400 mb-1">한국어</p>
-              <p className="text-gray-800 font-medium leading-relaxed">
-                &ldquo;{content.tagline_korean}&rdquo;
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 mb-1">English</p>
-              <p className="text-gray-600 leading-relaxed italic">
-                &ldquo;{content.tagline_english}&rdquo;
-              </p>
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="space-y-3 pb-6">
-            <button
-              onClick={handleApprove}
-              disabled={posting}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold text-sm shadow-md hover:shadow-lg active:scale-95 transition-all disabled:opacity-60"
-            >
-              {posting ? "Instagram에 올리는 중..." : "마음에 들어요 — Instagram에 올리기"}
-            </button>
-            <button
-              onClick={generateContent}
-              disabled={loading || posting}
-              className="w-full py-3.5 rounded-2xl bg-gray-100 text-gray-700 font-medium text-sm hover:bg-gray-200 active:scale-95 transition-all disabled:opacity-40"
-            >
-              다시 만들어주세요
-            </button>
+          <div className="footer">
+            <span>Instagram</span>
+            <span>atelier.studio</span>
           </div>
         </>
-      ) : null}
+      )}
+    </div>
+  );
+}
+
+function PersonaCard({ persona }: { persona: Persona }) {
+  const initials = persona.name.charAt(0).toUpperCase();
+  return (
+    <div className="persona-card">
+      <div className="persona-head">
+        <div className="persona-portrait">{initials}</div>
+        <div>
+          <div className="persona-name">{persona.name}<em>·</em></div>
+          <div className="persona-role">{persona.age_range} · {persona.occupation}</div>
+        </div>
+      </div>
+      <div className="persona-attrs">
+        <div className="attr">
+          <div className="k">라이프스타일</div>
+          <div className="v serif">{persona.lifestyle}</div>
+        </div>
+        <div className="attr">
+          <div className="k">핵심 고민</div>
+          <div className="v">{persona.pain_points[0] ?? "—"}</div>
+        </div>
+        <div className="attr">
+          <div className="k">주요 목표</div>
+          <div className="v">{persona.goals[0] ?? "—"}</div>
+        </div>
+        <div className="attr">
+          <div className="k">가치관</div>
+          <div className="v">{persona.values[0] ?? "—"}</div>
+        </div>
+      </div>
+      <div className="persona-quote">
+        <span className="q">{persona.pain_points[1] ?? persona.goals[0] ?? "—"}</span>
+        <span className="a">{persona.name}</span>
+      </div>
+      <div className="chips">
+        {persona.interests.map((t) => (
+          <span key={t} className="chip gold">{t}</span>
+        ))}
+        {persona.values.map((t) => (
+          <span key={t} className="chip">{t}</span>
+        ))}
+      </div>
     </div>
   );
 }
