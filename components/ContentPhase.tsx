@@ -52,14 +52,17 @@ export default function CanvasPanel({ persona, content, phase, setContent, onApp
     if (!content) return;
     setPosting(true);
     try {
-      await fetch("/api/post", {
+      const res = await fetch("/api/post", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content }),
       });
+      const data = await res.json();
+      onApprove({ ...content, simulated: data.simulated ?? true, post_id: data.post_id });
+    } catch {
+      onApprove({ ...content, simulated: true });
     } finally {
       setPosting(false);
-      onApprove(content);
     }
   }
 
@@ -172,9 +175,13 @@ export default function CanvasPanel({ persona, content, phase, setContent, onApp
                 {/* Approval / Posted */}
                 {phase === "done" ? (
                   <div className="posted fade-in">
-                    <div className="glyph">✓</div>
-                    <div className="t">포스팅 완료</div>
-                    <div className="s">Instagram Simulation Complete</div>
+                    <div className="glyph">{content.simulated ? "◎" : "✓"}</div>
+                    <div className="t">{content.simulated ? "시뮬레이션 완료" : "Instagram 게시 완료"}</div>
+                    <div className="s">
+                      {content.simulated
+                        ? "실제 업로드하려면 Vercel에 INSTAGRAM_ACCESS_TOKEN · INSTAGRAM_ACCOUNT_ID를 설정하세요"
+                        : `Post ID: ${content.post_id ?? "—"}`}
+                    </div>
                   </div>
                 ) : (
                   <div className="approval-bar">
