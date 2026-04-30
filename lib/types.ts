@@ -21,4 +21,7 @@ export interface MarketingContent {
   tagline_english: string;
   image_url: string;
   image_prompt: string;
+  simulated?: boolean;
+  post_id?: string;
+  post_reason?: string;
 }

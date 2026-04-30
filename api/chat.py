@@ -62,57 +62,64 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self):
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = json.loads(self.rfile.read(content_length))
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(content_length))
 
-        messages = body["messages"]
-        user_message = body["user_message"]
+            messages = body["messages"]
+            user_message = body["user_message"]
 
-        messages.append({"role": "user", "content": user_message})
+            messages.append({"role": "user", "content": user_message})
 
-        client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-        response = client.messages.create(
-            model="claude-opus-4-7",
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            tools=[SUBMIT_PERSONA_TOOL],
-            messages=messages,
-        )
+            client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+            response = client.messages.create(
+                model="claude-opus-4-7",
+                max_tokens=1024,
+                system=SYSTEM_PROMPT,
+                tools=[SUBMIT_PERSONA_TOOL],
+                messages=messages,
+            )
 
-        text_parts = []
-        persona = None
-        tool_use_id = None
-        content_dicts = []
+            text_parts = []
+            persona = None
+            tool_use_id = None
+            content_dicts = []
 
-        for block in response.content:
-            d = block.model_dump()
-            content_dicts.append(d)
-            if block.type == "text":
-                text_parts.append(block.text)
-            elif block.type == "tool_use" and block.name == "submit_persona":
-                tool_use_id = block.id
-                persona = block.input
+            for block in response.content:
+                d = block.model_dump()
+                content_dicts.append(d)
+                if block.type == "text":
+                    text_parts.append(block.text)
+                elif block.type == "tool_use" and block.name == "submit_persona":
+                    tool_use_id = block.id
+                    persona = block.input
 
-        messages.append({"role": "assistant", "content": content_dicts})
+            messages.append({"role": "assistant", "content": content_dicts})
 
-        if tool_use_id and persona:
-            messages.append({
-                "role": "user",
-                "content": [{
-                    "type": "tool_result",
-                    "tool_use_id": tool_use_id,
-                    "content": "페르소나가 성공적으로 완성되었습니다!",
-                }],
-            })
+            if tool_use_id and persona:
+                messages.append({
+                    "role": "user",
+                    "content": [{
+                        "type": "tool_result",
+                        "tool_use_id": tool_use_id,
+                        "content": "페르소나가 성공적으로 완성되었습니다!",
+                    }],
+                })
 
-        result = {
-            "messages": messages,
-            "response": "\n".join(text_parts),
-            "persona": persona,
-        }
+            result = {
+                "messages": messages,
+                "response": "\n".join(text_parts),
+                "persona": persona,
+            }
+            status = 200
+        except Exception as e:
+            import traceback
+            result = {"error": str(e), "detail": traceback.format_exc(), "messages": [], "response": "", "persona": None}
+            status = 500
+
         resp_body = json.dumps(result, ensure_ascii=False).encode("utf-8")
 
-        self.send_response(200)
+        self.send_response(status)
         for k, v in _cors_headers().items():
             self.send_header(k, v)
         self.send_header("Content-Length", str(len(resp_body)))
