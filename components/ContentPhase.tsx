@@ -58,7 +58,7 @@ export default function CanvasPanel({ persona, content, phase, setContent, onApp
         body: JSON.stringify({ content }),
       });
       const data = await res.json();
-      onApprove({ ...content, simulated: data.simulated ?? true, post_id: data.post_id });
+      onApprove({ ...content, simulated: data.simulated ?? true, post_id: data.post_id, post_reason: data.reason });
     } catch {
       onApprove({ ...content, simulated: true });
     } finally {
@@ -179,7 +179,7 @@ export default function CanvasPanel({ persona, content, phase, setContent, onApp
                     <div className="t">{content.simulated ? "시뮬레이션 완료" : "Instagram 게시 완료"}</div>
                     <div className="s">
                       {content.simulated
-                        ? "실제 업로드하려면 Vercel에 INSTAGRAM_ACCESS_TOKEN · INSTAGRAM_ACCOUNT_ID를 설정하세요"
+                        ? (content.post_reason || "자격증명을 확인하세요")
                         : `Post ID: ${content.post_id ?? "—"}`}
                     </div>
                   </div>

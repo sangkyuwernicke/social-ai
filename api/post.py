@@ -12,17 +12,19 @@ def _cors_headers():
     }
 
 
-def _try_instagram_post(image_url: str, caption: str) -> str:
-    access_token = os.environ.get("INSTAGRAM_ACCESS_TOKEN")
-    account_id = os.environ.get("INSTAGRAM_ACCOUNT_ID")
+def _try_instagram_post(image_url: str, caption: str) -> tuple[str, str]:
+    """Returns (post_id, reason). reason is empty string on success."""
+    access_token = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "").strip()
+    account_id = os.environ.get("INSTAGRAM_ACCOUNT_ID", "").strip()
 
-    if not (access_token and account_id):
-        return "simulated_post_id"
-
+    if not access_token:
+        return "simulated_post_id", "INSTAGRAM_ACCESS_TOKEN not set"
+    if not account_id:
+        return "simulated_post_id", "INSTAGRAM_ACCOUNT_ID not set"
     if not image_url.startswith("http"):
-        return "simulated_post_id"
+        return "simulated_post_id", f"image_url is not a public URL (starts with: {image_url[:30]})"
 
-    import urllib.request, urllib.parse
+    import urllib.request, urllib.parse, urllib.error
 
     base = "https://graph.facebook.com/v21.0"
 
@@ -33,8 +35,12 @@ def _try_instagram_post(image_url: str, caption: str) -> str:
         "access_token": access_token,
     }).encode()
     req = urllib.request.Request(f"{base}/{account_id}/media", data=data, method="POST")
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        container_id = json.loads(resp.read())["id"]
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            container_id = json.loads(resp.read())["id"]
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        return "simulated_post_id", f"media create failed ({e.code}): {body}"
 
     # Publish
     data = urllib.parse.urlencode({
@@ -42,8 +48,12 @@ def _try_instagram_post(image_url: str, caption: str) -> str:
         "access_token": access_token,
     }).encode()
     req = urllib.request.Request(f"{base}/{account_id}/media_publish", data=data, method="POST")
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return json.loads(resp.read())["id"]
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read())["id"], ""
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        return "simulated_post_id", f"publish failed ({e.code}): {body}"
 
 
 class handler(BaseHTTPRequestHandler):
@@ -57,23 +67,32 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self):
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = json.loads(self.rfile.read(content_length))
-        content = body["content"]
-
-        caption = f"{content['tagline_korean']}\n\n{content['tagline_english']}"
-        image_url = content.get("image_url", "")
-
         try:
-            post_id = _try_instagram_post(image_url, caption)
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(content_length))
+            content = body["content"]
+
+            caption = f"{content['tagline_korean']}\n\n{content['tagline_english']}"
+            image_url = content.get("image_url", "")
+
+            post_id, reason = _try_instagram_post(image_url, caption)
             simulated = post_id.startswith("simulated")
-        except Exception:
-            post_id = "simulated_post_id"
-            simulated = True
+            result = {
+                "post_id": post_id,
+                "simulated": simulated,
+                "reason": reason,
+                "image_url_preview": image_url[:80],
+            }
+        except Exception as e:
+            import traceback
+            result = {
+                "post_id": "simulated_post_id",
+                "simulated": True,
+                "reason": str(e),
+                "detail": traceback.format_exc(),
+            }
 
-        result = {"post_id": post_id, "simulated": simulated}
-        resp_body = json.dumps(result).encode("utf-8")
-
+        resp_body = json.dumps(result, ensure_ascii=False).encode("utf-8")
         self.send_response(200)
         for k, v in _cors_headers().items():
             self.send_header(k, v)

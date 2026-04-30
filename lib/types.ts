@@ -23,4 +23,5 @@ export interface MarketingContent {
   image_prompt: string;
   simulated?: boolean;
   post_id?: string;
+  post_reason?: string;
 }
