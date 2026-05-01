@@ -17,6 +17,9 @@ export default function CanvasPanel({ persona, content, phase, setContent, onApp
   const [loading, setLoading] = useState(false);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [extraPrompt, setExtraPrompt] = useState("");
+  const [reimaging, setReimaging] = useState(false);
 
   useEffect(() => {
     if (phase === "review" && !content) {
@@ -63,6 +66,29 @@ export default function CanvasPanel({ persona, content, phase, setContent, onApp
       onApprove({ ...content, simulated: true });
     } finally {
       setPosting(false);
+    }
+  }
+
+  async function handleReimage() {
+    if (!content) return;
+    setReimaging(true);
+    try {
+      const res = await fetch("/api/reimage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image_prompt: content.image_prompt,
+          extra_prompt: extraPrompt,
+        }),
+      });
+      const data = await res.json();
+      if (data.image_url) {
+        setContent({ ...content, image_url: data.image_url });
+        setEditOpen(false);
+        setExtraPrompt("");
+      }
+    } finally {
+      setReimaging(false);
     }
   }
 
@@ -159,6 +185,13 @@ export default function CanvasPanel({ persona, content, phase, setContent, onApp
                       ) : (
                         <ArtPlaceholder tagline="" loading />
                       )}
+                      {reimaging && (
+                        <div style={{ position: "absolute", inset: 0, background: "rgba(20,32,26,0.7)", display: "grid", placeItems: "center", backdropFilter: "blur(4px)" }}>
+                          <div style={{ color: "var(--gold-soft)", fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 18, textAlign: "center" }}>
+                            이미지 재생성 중…
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="ig-actions">
                       <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /></svg>
@@ -171,6 +204,49 @@ export default function CanvasPanel({ persona, content, phase, setContent, onApp
                     <div className="ig-when">방금 전</div>
                   </div>
                 </div>
+
+                {/* Image edit */}
+                {phase === "review" && (
+                  <div className="canvas-section">
+                    <button
+                      style={{
+                        display: "flex", alignItems: "center", gap: 8, width: "100%",
+                        background: "none", border: "none", padding: "4px 0",
+                        cursor: "pointer", color: "var(--moss)", fontSize: 11,
+                        letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 500,
+                      }}
+                      onClick={() => setEditOpen((v) => !v)}
+                    >
+                      <span style={{ color: "var(--gold)" }}>{editOpen ? "▲" : "▼"}</span>
+                      이미지 수정 / 추가 프롬프트
+                    </button>
+
+                    {editOpen && (
+                      <div className="cap-edit fade-in" style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--gold)", marginBottom: 8 }}>
+                          추가할 스타일이나 디테일을 입력하세요
+                        </div>
+                        <textarea
+                          value={extraPrompt}
+                          onChange={(e) => setExtraPrompt(e.target.value)}
+                          placeholder="예: warm sunset lighting, minimalist style, add flowers in the background, cinematic mood..."
+                          rows={3}
+                          style={{ width: "100%", border: 0, outline: 0, resize: "vertical", fontSize: 13, lineHeight: 1.55, color: "var(--ink)", fontFamily: "var(--sans)", background: "transparent", minHeight: 72 }}
+                        />
+                        <div className="cap-edit-foot">
+                          <span>{extraPrompt.length} chars</span>
+                          <button
+                            className="tlbtn primary"
+                            onClick={handleReimage}
+                            disabled={reimaging}
+                          >
+                            {reimaging ? "생성 중…" : "이미지 재생성"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Approval / Posted */}
                 {phase === "done" ? (
