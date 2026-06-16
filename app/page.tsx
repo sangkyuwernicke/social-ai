@@ -1,118 +1,73 @@
 "use client";
 
-import { useState } from "react";
-import ChatPanel from "@/components/ChatPhase";
-import CanvasPanel from "@/components/ContentPhase";
-import type { ChatMessage, Persona, MarketingContent } from "@/lib/types";
-
-const STEPS = [
-  { num: "I",   label: "Persona" },
-  { num: "II",  label: "Assets"  },
-  { num: "III", label: "Review"  },
-  { num: "IV",  label: "Posted"  },
-];
-
-function stepIndex(phase: string) {
-  if (phase === "chat")   return 0;
-  if (phase === "review") return 1;
-  if (phase === "approve") return 2;
-  return 3;
-}
+import Link from "next/link";
 
 export default function Home() {
-  const [phase, setPhase] = useState<"chat" | "review" | "done">("chat");
-  const [canvasOpen, setCanvasOpen] = useState(false);
-  const [apiMessages, setApiMessages] = useState<unknown[]>([]);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [persona, setPersona] = useState<Persona | null>(null);
-  const [content, setContent] = useState<MarketingContent | null>(null);
-
-  const currentStep = phase === "chat" ? 0 : phase === "review" ? 2 : 3;
-
-  function handlePersonaReady(p: Persona) {
-    setPersona(p);
-    setPhase("review");
-    setCanvasOpen(true);
-  }
-
-  function handleApprove(c: MarketingContent) {
-    setContent(c);
-    setPhase("done");
-  }
-
-  function handleRestart() {
-    setPhase("chat");
-    setCanvasOpen(false);
-    setApiMessages([]);
-    setChatMessages([]);
-    setPersona(null);
-    setContent(null);
-  }
-
   return (
-    <div className="shell">
-      {/* Top bar */}
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark">A</div>
-          <div className="brand-name">Atelier<em>·</em></div>
-          <span className="brand-tag">Persona Studio</span>
-        </div>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" }}>
+      <div style={{ maxWidth: "800px", margin: "0 auto", padding: "60px 20px", textAlign: "center", color: "white" }}>
+        <h1 style={{ fontSize: "48px", fontWeight: "700", marginBottom: "20px" }}>AI Apps</h1>
+        <p style={{ fontSize: "18px", marginBottom: "60px", opacity: 0.9 }}>
+          Welcome to your AI-powered applications
+        </p>
 
-        <div className="stepper">
-          {STEPS.map((s, i) => (
-            <div key={s.label} style={{ display: "flex", alignItems: "center" }}>
-              {i > 0 && <div className="step-bar" />}
-              <div className={`step ${i === currentStep ? "is-active" : i < currentStep ? "is-done" : ""}`}>
-                <span className="step-num">{s.num}</span>
-                {s.label}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="topbar-right">
-          {(phase === "review" || phase === "done") && (
-            <button
-              className={`icon-btn ${canvasOpen ? "is-on" : ""}`}
-              onClick={() => setCanvasOpen((v) => !v)}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "30px", marginTop: "40px" }}>
+          {/* Chat App */}
+          <Link href="/chat" style={{ textDecoration: "none" }}>
+            <div
+              style={{
+                background: "white",
+                borderRadius: "12px",
+                padding: "40px 20px",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
+                transition: "transform 0.3s, box-shadow 0.3s",
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-5px)";
+                e.currentTarget.style.boxShadow = "0 15px 50px rgba(0,0,0,0.3)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 10px 40px rgba(0,0,0,0.2)";
+              }}
             >
-              <span className="dot" />
-              {canvasOpen ? "Hide Canvas" : "View Canvas"}
-            </button>
-          )}
+              <div style={{ fontSize: "48px", marginBottom: "15px" }}>💬</div>
+              <h2 style={{ color: "#333", fontSize: "24px", marginBottom: "10px" }}>AI Chat</h2>
+              <p style={{ color: "#666", fontSize: "14px" }}>
+                Chat with Claude or Gemini AI models. Choose your preferred AI and have intelligent conversations.
+              </p>
+            </div>
+          </Link>
+
+          {/* Persona Studio */}
+          <Link href="/persona" style={{ textDecoration: "none" }}>
+            <div
+              style={{
+                background: "white",
+                borderRadius: "12px",
+                padding: "40px 20px",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
+                transition: "transform 0.3s, box-shadow 0.3s",
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-5px)";
+                e.currentTarget.style.boxShadow = "0 15px 50px rgba(0,0,0,0.3)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 10px 40px rgba(0,0,0,0.2)";
+              }}
+            >
+              <div style={{ fontSize: "48px", marginBottom: "15px" }}>👤</div>
+              <h2 style={{ color: "#333", fontSize: "24px", marginBottom: "10px" }}>Persona Studio</h2>
+              <p style={{ color: "#666", fontSize: "14px" }}>
+                Create and manage personas for AI-powered social media content generation.
+              </p>
+            </div>
+          </Link>
         </div>
-      </header>
-
-      {/* Workspace */}
-      <div className={`workspace ${canvasOpen ? "is-canvas-open" : ""}`}>
-        <ChatPanel
-          apiMessages={apiMessages}
-          chatMessages={chatMessages}
-          setApiMessages={setApiMessages}
-          setChatMessages={setChatMessages}
-          onPersonaReady={handlePersonaReady}
-          phase={phase}
-        />
-
-        {(phase === "review" || phase === "done") && (
-          <CanvasPanel
-            persona={persona}
-            content={content}
-            setContent={setContent}
-            phase={phase}
-            onApprove={handleApprove}
-            onRestart={handleRestart}
-          />
-        )}
-
-        {/* Floating toggle when canvas closed and persona ready */}
-        {(phase === "review" || phase === "done") && !canvasOpen && (
-          <button className="float-toggle" onClick={() => setCanvasOpen(true)}>
-            <span className="pulse" />
-            View Canvas
-          </button>
-        )}
       </div>
     </div>
   );

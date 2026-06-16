@@ -25,3 +25,26 @@ export interface MarketingContent {
   post_id?: string;
   post_reason?: string;
 }
+
+// Chat webapp types
+export interface SimpleChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: number;
+  model?: "claude" | "gemini";
+}
+
+export interface ChatRequest {
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  model: "claude" | "gemini";
+}
+
+export interface ChatResponse {
+  content: string;
+  model: "claude" | "gemini";
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+  };
+}
